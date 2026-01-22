@@ -1,0 +1,67 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# Virtual Environment
+venv/
+venv310/
+env/
+ENV/
+.venv
+
+# IDEs
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
+
+logs/*
+!logs/.gitkeep
+
+# Model Cache
+models/
+.cache/
+huggingface/
+yolov8n.pt
+models/*.pt
+
+# Jupyter Notebooks
+.ipynb_checkpoints/
+*.ipynb
+
+# Test files
+test_*.py
+temp/
+tmp/
+
+# Model cache / large weights (optional)
+Uncomment if models are too large
+# --------------------
+models/*.bin
+models/*.pt
+models/*.safetensors
