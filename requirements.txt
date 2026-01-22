@@ -1,3 +1,6 @@
+# Python version
+# Run this code on python 3.10.11 so not to have any issues
+
 # ---------- PyTorch (CUDA via index-url) ----------
 torch==2.2.2
 torchvision==0.17.2
