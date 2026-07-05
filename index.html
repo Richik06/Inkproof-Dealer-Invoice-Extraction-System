@@ -1,0 +1,678 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Inkproof — Document Field Extraction</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg: #0B0E14;
+    --panel: #12161F;
+    --panel-raised: #171C27;
+    --hairline: #232838;
+    --text: #EDEFF4;
+    --text-muted: #8B94A7;
+    --amber: #E8A33D;
+    --amber-dim: rgba(232,163,61,0.14);
+    --teal: #2FD4A3;
+    --teal-dim: rgba(47,212,163,0.14);
+    --red: #E5626A;
+    --red-dim: rgba(229,98,106,0.14);
+    --radius: 10px;
+  }
+
+  *{ box-sizing: border-box; }
+
+  body{
+    margin:0;
+    background:
+      radial-gradient(ellipse 900px 500px at 50% -10%, rgba(232,163,61,0.06), transparent 60%),
+      var(--bg);
+    color: var(--text);
+    font-family: 'IBM Plex Sans', sans-serif;
+    min-height: 100vh;
+  }
+
+  ::selection{ background: var(--amber-dim); color: var(--amber); }
+
+  a:focus-visible, button:focus-visible, [tabindex]:focus-visible {
+    outline: 2px solid var(--amber);
+    outline-offset: 2px;
+  }
+
+  .wrap{
+    max-width: 1120px;
+    margin: 0 auto;
+    padding: 28px 24px 80px;
+  }
+
+  /* ---------- Header ---------- */
+  header{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    padding-bottom: 28px;
+    border-bottom: 1px solid var(--hairline);
+    margin-bottom: 40px;
+  }
+  .brand{ display:flex; align-items:center; gap:12px; }
+  .brand svg{ flex-shrink:0; }
+  .brand-text h1{
+    font-family:'Space Grotesk', sans-serif;
+    font-size: 19px;
+    font-weight:600;
+    margin:0;
+    letter-spacing: 0.01em;
+  }
+  .brand-text p{
+    margin:2px 0 0;
+    font-size: 12.5px;
+    color: var(--text-muted);
+  }
+  .status-pill{
+    display:flex;
+    align-items:center;
+    gap:7px;
+    font-family:'IBM Plex Mono', monospace;
+    font-size: 11.5px;
+    color: var(--text-muted);
+    padding: 6px 12px;
+    border: 1px solid var(--hairline);
+    border-radius: 999px;
+    background: var(--panel);
+  }
+  .status-dot{
+    width:7px; height:7px; border-radius:50%;
+    background: var(--teal);
+    box-shadow: 0 0 0 3px var(--teal-dim);
+  }
+  .status-dot.demo{ background: var(--amber); box-shadow: 0 0 0 3px var(--amber-dim); }
+
+  /* ---------- Dropzone (the "hero") ---------- */
+  .dropzone{
+    position: relative;
+    border: 1.5px dashed var(--hairline);
+    border-radius: var(--radius);
+    background: var(--panel);
+    padding: 56px 32px;
+    text-align: center;
+    cursor: pointer;
+    transition: border-color .18s ease, background .18s ease;
+    overflow: hidden;
+  }
+  .dropzone:hover, .dropzone.drag{
+    border-color: var(--amber);
+    background: linear-gradient(180deg, var(--amber-dim), transparent 60%), var(--panel);
+  }
+  .dropzone input{ display:none; }
+  .dz-icon{ margin-bottom: 18px; opacity:.85; }
+  .dz-title{
+    font-family:'Space Grotesk', sans-serif;
+    font-size: 18px;
+    font-weight: 600;
+    margin: 0 0 6px;
+  }
+  .dz-sub{
+    font-size: 13px;
+    color: var(--text-muted);
+    margin: 0;
+  }
+  .dz-sub b{ color: var(--text); font-weight:500; }
+
+  /* ---------- Queue strip ---------- */
+  .queue{
+    display:flex;
+    gap:10px;
+    margin-top: 18px;
+    flex-wrap: wrap;
+  }
+  .queue-item{
+    display:flex;
+    align-items:center;
+    gap:8px;
+    font-family:'IBM Plex Mono', monospace;
+    font-size: 12px;
+    color: var(--text-muted);
+    background: var(--panel);
+    border: 1px solid var(--hairline);
+    padding: 7px 12px;
+    border-radius: 999px;
+    cursor:pointer;
+    transition: border-color .15s ease, color .15s ease;
+  }
+  .queue-item:hover, .queue-item.active{
+    border-color: var(--amber);
+    color: var(--text);
+  }
+  .queue-item .qdot{ width:6px;height:6px;border-radius:50%; background: var(--hairline); }
+  .queue-item.done .qdot{ background: var(--teal); }
+  .queue-item.error .qdot{ background: var(--red); }
+
+  /* ---------- Result section ---------- */
+  .result{
+    margin-top: 44px;
+    display: none;
+  }
+  .result.visible{ display:block; animation: fadeUp .35s ease; }
+  @keyframes fadeUp{ from{ opacity:0; transform: translateY(8px);} to{opacity:1; transform:none;} }
+
+  .result-grid{
+    display:grid;
+    grid-template-columns: 1fr 1.05fr;
+    gap: 24px;
+    align-items: start;
+  }
+  @media (max-width: 860px){
+    .result-grid{ grid-template-columns: 1fr; }
+  }
+
+  /* --- Left: document preview with scan + overlays --- */
+  .preview-card{
+    background: var(--panel);
+    border: 1px solid var(--hairline);
+    border-radius: var(--radius);
+    overflow: hidden;
+  }
+  .preview-frame{
+    position: relative;
+    background: #060810;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    min-height: 320px;
+    overflow:hidden;
+  }
+  .preview-frame img{
+    display:block;
+    max-width:100%;
+    max-height: 560px;
+  }
+  .scanline{
+    position:absolute;
+    left:0; right:0; top:0;
+    height: 2px;
+    background: linear-gradient(90deg, transparent, var(--amber), transparent);
+    box-shadow: 0 0 16px 2px rgba(232,163,61,0.55);
+    animation: sweep 1.6s linear infinite;
+  }
+  @keyframes sweep{
+    0%{ top: 0%; }
+    100%{ top: 100%; }
+  }
+  @media (prefers-reduced-motion: reduce){
+    .scanline{ animation: none; top:50%; }
+  }
+
+  .bbox{
+    position:absolute;
+    border: 1.5px solid var(--amber);
+    border-radius: 3px;
+    pointer-events:none;
+  }
+  .bbox.stamp{ border-color: var(--teal); }
+  .bbox span{
+    position:absolute;
+    top:-19px; left:-1.5px;
+    font-family:'IBM Plex Mono', monospace;
+    font-size: 9.5px;
+    letter-spacing: .05em;
+    padding: 1.5px 5px;
+    background: var(--amber);
+    color: #1a1206;
+    border-radius: 3px;
+    white-space:nowrap;
+  }
+  .bbox.stamp span{ background: var(--teal); color: #06231b; }
+
+  .preview-meta{
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    padding: 12px 16px;
+    border-top: 1px solid var(--hairline);
+    font-family:'IBM Plex Mono', monospace;
+    font-size: 11.5px;
+    color: var(--text-muted);
+  }
+  .preview-meta .demo-badge{
+    color: var(--amber);
+    background: var(--amber-dim);
+    padding: 3px 8px;
+    border-radius: 5px;
+  }
+
+  /* --- Right: ticket panel --- */
+  .ticket{
+    background: var(--panel);
+    border: 1px solid var(--hairline);
+    border-radius: var(--radius);
+    position: relative;
+  }
+  .ticket::before{
+    content:"";
+    position:absolute;
+    top:-1px; left:0; right:0; height: 12px;
+    background-image: radial-gradient(circle 7px at 18px 0, var(--bg) 7px, transparent 7.5px);
+    background-size: 36px 12px;
+    background-repeat: repeat-x;
+  }
+  .ticket-head{
+    padding: 26px 24px 18px;
+    display:flex;
+    justify-content:space-between;
+    align-items:flex-start;
+    border-bottom: 1px dashed var(--hairline);
+  }
+  .ticket-head .doc-id{
+    font-family:'Space Grotesk', sans-serif;
+    font-size: 16px;
+    font-weight: 600;
+    margin: 0 0 4px;
+    word-break: break-word;
+  }
+  .ticket-head .doc-meta{
+    font-family:'IBM Plex Mono', monospace;
+    font-size: 11.5px;
+    color: var(--text-muted);
+  }
+
+  /* Confidence gauge */
+  .gauge{ position:relative; width:64px; height:64px; flex-shrink:0; }
+  .gauge svg{ transform: rotate(-90deg); }
+  .gauge-bg{ fill:none; stroke: var(--hairline); stroke-width:6; }
+  .gauge-fg{ fill:none; stroke-width:6; stroke-linecap:round; transition: stroke-dashoffset 1s cubic-bezier(.2,.7,.3,1), stroke .3s; }
+  .gauge-label{
+    position:absolute; inset:0;
+    display:flex; align-items:center; justify-content:center;
+    font-family:'IBM Plex Mono', monospace;
+    font-size: 13px;
+    font-weight: 600;
+  }
+
+  .fields{ padding: 6px 24px 8px; }
+  .field-row{
+    display:flex;
+    justify-content:space-between;
+    align-items:baseline;
+    gap: 16px;
+    padding: 13px 0;
+    border-bottom: 1px solid var(--hairline);
+  }
+  .field-row:last-child{ border-bottom:none; }
+  .field-label{
+    font-size: 12.5px;
+    color: var(--text-muted);
+    letter-spacing: .01em;
+    flex-shrink:0;
+  }
+  .field-value{
+    font-family:'IBM Plex Mono', monospace;
+    font-size: 14px;
+    text-align:right;
+    word-break: break-word;
+  }
+  .field-value.empty{ color: var(--text-muted); font-style: italic; font-family:'IBM Plex Sans',sans-serif; }
+
+  .badge-row{
+    display:flex;
+    gap:8px;
+  }
+  .badge{
+    display:inline-flex;
+    align-items:center;
+    gap:5px;
+    font-family:'IBM Plex Mono', monospace;
+    font-size: 11.5px;
+    padding: 4px 9px;
+    border-radius: 6px;
+    background: var(--hairline);
+    color: var(--text-muted);
+  }
+  .badge.present.signature{ background: var(--amber-dim); color: var(--amber); }
+  .badge.present.stamp{ background: var(--teal-dim); color: var(--teal); }
+
+  .ticket-foot{
+    display:flex;
+    justify-content:space-between;
+    padding: 16px 24px 22px;
+    font-family:'IBM Plex Mono', monospace;
+    font-size: 11px;
+    color: var(--text-muted);
+  }
+
+  /* ---------- Loading state ---------- */
+  .loading-line{
+    display:flex;
+    align-items:center;
+    gap:10px;
+    font-family:'IBM Plex Mono', monospace;
+    font-size: 12.5px;
+    color: var(--amber);
+    margin-top: 16px;
+  }
+  .loading-line .dots::after{
+    content:'';
+    animation: dots 1.2s steps(4,end) infinite;
+  }
+  @keyframes dots{
+    0%{ content:''; } 25%{ content:'.'; } 50%{ content:'..'; } 75%{ content:'...'; } 100%{ content:''; }
+  }
+
+  .error-box{
+    margin-top: 16px;
+    border: 1px solid var(--red);
+    background: var(--red-dim);
+    color: var(--red);
+    padding: 12px 14px;
+    border-radius: 8px;
+    font-size: 13px;
+  }
+
+  footer{
+    margin-top: 60px;
+    padding-top: 20px;
+    border-top: 1px solid var(--hairline);
+    font-size: 12px;
+    color: var(--text-muted);
+    display:flex;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header>
+    <div class="brand">
+      <svg width="34" height="34" viewBox="0 0 34 34" fill="none">
+        <circle cx="17" cy="17" r="15.5" stroke="#E8A33D" stroke-width="1.5"/>
+        <circle cx="17" cy="17" r="10" stroke="#E8A33D" stroke-width="1.2" stroke-dasharray="2 3"/>
+        <path d="M11 18.5L15 22L23.5 12.5" stroke="#2FD4A3" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+      <div class="brand-text">
+        <h1>Inkproof</h1>
+        <p>Dealer document field extraction</p>
+      </div>
+    </div>
+    <div class="status-pill">
+      <span class="status-dot" id="statusDot"></span>
+      <span id="statusText">checking engine…</span>
+    </div>
+  </header>
+
+  <div class="dropzone" id="dropzone" tabindex="0" role="button" aria-label="Upload a document to extract fields">
+    <input type="file" id="fileInput" accept=".pdf,.png,.jpg,.jpeg" multiple>
+    <div class="dz-icon">
+      <svg width="40" height="40" viewBox="0 0 40 40" fill="none">
+        <path d="M20 6V26M20 6L13 13M20 6L27 13" stroke="#E8A33D" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+        <path d="M6 26V31C6 32.6569 7.34315 34 9 34H31C32.6569 34 34 32.6569 34 31V26" stroke="#8B94A7" stroke-width="2" stroke-linecap="round"/>
+      </svg>
+    </div>
+    <p class="dz-title">Drop an invoice, PDF, or scan here</p>
+    <p class="dz-sub">or <b>click to browse</b> · PDF, PNG, JPG — one or several at once</p>
+  </div>
+
+  <div class="queue" id="queue"></div>
+  <div id="loading" class="loading-line" style="display:none;">
+    <span>PROCESSING<span class="dots"></span></span>
+  </div>
+  <div id="errorBox" class="error-box" style="display:none;"></div>
+
+  <section class="result" id="result">
+    <div class="result-grid">
+
+      <div class="preview-card">
+        <div class="preview-frame" id="previewFrame">
+          <img id="previewImg" alt="Uploaded document preview">
+          <div class="scanline" id="scanline" style="display:none;"></div>
+        </div>
+        <div class="preview-meta">
+          <span id="dimsText">—</span>
+          <span class="demo-badge" id="demoBadge" style="display:none;">DEMO SAMPLE</span>
+        </div>
+      </div>
+
+      <div class="ticket">
+        <div class="ticket-head">
+          <div>
+            <p class="doc-id" id="docId">—</p>
+            <p class="doc-meta" id="docMeta">—</p>
+          </div>
+          <div class="gauge">
+            <svg width="64" height="64" viewBox="0 0 64 64">
+              <circle class="gauge-bg" cx="32" cy="32" r="27"/>
+              <circle class="gauge-fg" id="gaugeFg" cx="32" cy="32" r="27"/>
+            </svg>
+            <div class="gauge-label" id="gaugeLabel">—</div>
+          </div>
+        </div>
+
+        <div class="fields" id="fields"></div>
+
+        <div class="ticket-foot">
+          <span id="timeText">—</span>
+          <span id="costText">—</span>
+        </div>
+      </div>
+
+    </div>
+  </section>
+
+  <footer>
+    <span>Inkproof · built on your HybridExtractor (YOLO + Qwen2-VL)</span>
+    <span id="engineFooter">—</span>
+  </footer>
+</div>
+
+<script>
+const API_BASE = ''; // same-origin; change if backend runs elsewhere, e.g. 'http://localhost:8000'
+const REF_W = 1080, REF_H = 1594; // reference page size used only for demo-mode overlay scaling
+
+const dropzone = document.getElementById('dropzone');
+const fileInput = document.getElementById('fileInput');
+const queueEl = document.getElementById('queue');
+const loadingEl = document.getElementById('loading');
+const errorBox = document.getElementById('errorBox');
+const resultEl = document.getElementById('result');
+const previewFrame = document.getElementById('previewFrame');
+const previewImg = document.getElementById('previewImg');
+const scanline = document.getElementById('scanline');
+const dimsText = document.getElementById('dimsText');
+const demoBadge = document.getElementById('demoBadge');
+const docIdEl = document.getElementById('docId');
+const docMetaEl = document.getElementById('docMeta');
+const fieldsEl = document.getElementById('fields');
+const gaugeFg = document.getElementById('gaugeFg');
+const gaugeLabel = document.getElementById('gaugeLabel');
+const timeText = document.getElementById('timeText');
+const costText = document.getElementById('costText');
+const statusDot = document.getElementById('statusDot');
+const statusText = document.getElementById('statusText');
+const engineFooter = document.getElementById('engineFooter');
+
+let history = []; // { name, url, result, status }
+
+// ---------- Engine health check ----------
+async function checkHealth(){
+  try{
+    const res = await fetch(API_BASE + '/api/health');
+    const data = await res.json();
+    if(data.real_model_loaded){
+      statusDot.className = 'status-dot';
+      statusText.textContent = 'live model engaged';
+      engineFooter.textContent = 'Engine: YOLO + Qwen2-VL (live)';
+    } else {
+      statusDot.className = 'status-dot demo';
+      statusText.textContent = 'demo mode';
+      engineFooter.textContent = 'Engine: demo mode (sample results)';
+    }
+  } catch(e){
+    statusDot.className = 'status-dot demo';
+    statusText.textContent = 'backend unreachable';
+    engineFooter.textContent = 'Backend not reachable — is app.py running?';
+  }
+}
+checkHealth();
+
+// ---------- Upload handling ----------
+dropzone.addEventListener('click', () => fileInput.click());
+dropzone.addEventListener('keydown', (e) => { if(e.key === 'Enter' || e.key === ' ') fileInput.click(); });
+dropzone.addEventListener('dragover', (e) => { e.preventDefault(); dropzone.classList.add('drag'); });
+dropzone.addEventListener('dragleave', () => dropzone.classList.remove('drag'));
+dropzone.addEventListener('drop', (e) => {
+  e.preventDefault();
+  dropzone.classList.remove('drag');
+  if(e.dataTransfer.files.length) handleFiles(e.dataTransfer.files);
+});
+fileInput.addEventListener('change', (e) => {
+  if(e.target.files.length) handleFiles(e.target.files);
+  fileInput.value = '';
+});
+
+function handleFiles(fileList){
+  errorBox.style.display = 'none';
+  [...fileList].forEach(f => processFile(f));
+}
+
+function addQueueItem(name){
+  const item = document.createElement('div');
+  item.className = 'queue-item';
+  item.innerHTML = `<span class="qdot"></span><span>${name}</span>`;
+  queueEl.appendChild(item);
+  return item;
+}
+
+async function processFile(file){
+  const item = addQueueItem(file.name);
+  const localUrl = URL.createObjectURL(file);
+
+  loadingEl.style.display = 'flex';
+  showPreview(localUrl, null, true);
+
+  const form = new FormData();
+  form.append('file', file);
+
+  try{
+    const res = await fetch(API_BASE + '/api/extract', { method:'POST', body: form });
+    if(!res.ok){
+      const errData = await res.json().catch(() => ({}));
+      throw new Error(errData.detail || `Request failed (${res.status})`);
+    }
+    const data = await res.json();
+
+    item.classList.add('done');
+    item.querySelector('span:last-child').textContent = data.doc_id || file.name;
+    item.onclick = () => renderResult(localUrl, data);
+
+    renderResult(localUrl, data);
+  } catch(err){
+    item.classList.add('error');
+    errorBox.textContent = 'Could not extract "' + file.name + '": ' + err.message;
+    errorBox.style.display = 'block';
+  } finally {
+    loadingEl.style.display = 'none';
+  }
+}
+
+function showPreview(url, result, isLoading){
+  previewImg.src = url;
+  scanline.style.display = isLoading ? 'block' : 'none';
+  resultEl.classList.add('visible');
+  // clear old bboxes
+  [...previewFrame.querySelectorAll('.bbox')].forEach(el => el.remove());
+}
+
+function renderResult(imgUrl, data){
+  showPreview(imgUrl, data, false);
+
+  const f = data.fields || {};
+  const isDemo = !!data.demo_mode;
+
+  docIdEl.textContent = data.doc_id || '—';
+  docMetaEl.textContent = isDemo ? 'sample result · not this document' : 'extracted just now';
+  demoBadge.style.display = isDemo ? 'inline-block' : 'none';
+
+  // Confidence gauge
+  const conf = typeof data.confidence === 'number' ? data.confidence : 0;
+  const r = 27, circumference = 2 * Math.PI * r;
+  gaugeFg.style.strokeDasharray = `${circumference}`;
+  gaugeFg.style.strokeDashoffset = `${circumference}`;
+  let color = 'var(--red)';
+  if(conf >= 0.8) color = 'var(--teal)';
+  else if(conf >= 0.5) color = 'var(--amber)';
+  gaugeFg.style.stroke = color;
+  gaugeLabel.style.color = color;
+  gaugeLabel.textContent = Math.round(conf * 100) + '%';
+  requestAnimationFrame(() => {
+    gaugeFg.style.strokeDashoffset = `${circumference * (1 - conf)}`;
+  });
+
+  // Fields
+  fieldsEl.innerHTML = '';
+  fieldsEl.appendChild(fieldRow('Dealer', f.dealer_name));
+  fieldsEl.appendChild(fieldRow('Model', f.model_name));
+  fieldsEl.appendChild(fieldRow('Horse power', f.horse_power ? f.horse_power + ' HP' : null));
+  fieldsEl.appendChild(fieldRow('Asset cost', f.asset_cost ? '₹' + Number(f.asset_cost).toLocaleString('en-IN') : null));
+
+  const badgeRow = document.createElement('div');
+  badgeRow.className = 'field-row';
+  badgeRow.innerHTML = `
+    <span class="field-label">Markings</span>
+    <span class="badge-row">
+      <span class="badge signature ${f.signature?.present ? 'present' : ''}">${f.signature?.present ? '✓' : '✗'} signature</span>
+      <span class="badge stamp ${f.stamp?.present ? 'present' : ''}">${f.stamp?.present ? '✓' : '✗'} stamp</span>
+    </span>`;
+  fieldsEl.appendChild(badgeRow);
+
+  timeText.textContent = data.processing_time_sec != null ? `⏱ ${data.processing_time_sec}s` : '—';
+  costText.textContent = data.cost_estimate_usd != null ? `$${data.cost_estimate_usd}` : '—';
+
+  // Bounding box overlays — draw once the image has its rendered size
+  const drawBoxes = () => {
+    [...previewFrame.querySelectorAll('.bbox')].forEach(el => el.remove());
+    const rect = previewImg.getBoundingClientRect();
+    const frameRect = previewFrame.getBoundingClientRect();
+    const offsetX = rect.left - frameRect.left;
+    const offsetY = rect.top - frameRect.top;
+
+    const refW = isDemo ? REF_W : (previewImg.naturalWidth || REF_W);
+    const refH = isDemo ? REF_H : (previewImg.naturalHeight || REF_H);
+
+    if(f.signature?.present) drawBox(f.signature.bbox, 'signature', 'SIGNATURE', rect, offsetX, offsetY, refW, refH);
+    if(f.stamp?.present) drawBox(f.stamp.bbox, 'stamp', 'STAMP', rect, offsetX, offsetY, refW, refH);
+  };
+
+  if(previewImg.complete) drawBoxes();
+  previewImg.onload = () => {
+    dimsText.textContent = `${previewImg.naturalWidth}×${previewImg.naturalHeight}px`;
+    drawBoxes();
+  };
+}
+
+function drawBox(bbox, cls, label, rect, offsetX, offsetY, refW, refH){
+  if(!bbox || bbox.length !== 4) return;
+  const [x1,y1,x2,y2] = bbox;
+  const box = document.createElement('div');
+  box.className = 'bbox ' + cls;
+  box.style.left = offsetX + (x1/refW) * rect.width + 'px';
+  box.style.top = offsetY + (y1/refH) * rect.height + 'px';
+  box.style.width = ((x2-x1)/refW) * rect.width + 'px';
+  box.style.height = ((y2-y1)/refH) * rect.height + 'px';
+  box.innerHTML = `<span>${label}</span>`;
+  previewFrame.appendChild(box);
+}
+
+function fieldRow(label, value){
+  const row = document.createElement('div');
+  row.className = 'field-row';
+  const hasValue = value !== null && value !== undefined && value !== '';
+  row.innerHTML = `<span class="field-label">${label}</span><span class="field-value ${hasValue ? '' : 'empty'}">${hasValue ? value : 'not found'}</span>`;
+  return row;
+}
+</script>
+</body>
+</html>

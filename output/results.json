@@ -2,9 +2,9 @@
   {
     "doc_id": "172427893_3_pg11",
     "fields": {
-      "dealer_name": "",
-      "model_name": "",
-      "horse_power": null,
+      "dealer_name": "The Odisha Agro Industries Corporation Ltd",
+      "model_name": "SWARAJ 744FE",
+      "horse_power": 48,
       "asset_cost": 801815,
       "signature": {
         "present": true,
@@ -25,7 +25,7 @@
         ]
       }
     },
-    "confidence": 0.571,
+    "confidence": 0.851,
     "processing_time_sec": 6.75,
     "cost_estimate_usd": 0.000135
   },
@@ -33,9 +33,9 @@
     "doc_id": "172448470_3_pg15",
     "fields": {
       "dealer_name": "The Orissa Agro Industries Corporation Ltd.",
-      "model_name": "Tractor",
+      "model_name": "Kubota MU 5502 4WD",
       "horse_power": 11,
-      "asset_cost": 5506,
+      "asset_cost": 1106506,
       "signature": {
         "present": true,
         "bbox": [
@@ -55,7 +55,7 @@
         ]
       }
     },
-    "confidence": 0.643,
+    "confidence": 0.793,
     "processing_time_sec": 4.05,
     "cost_estimate_usd": 8.1e-05
   },

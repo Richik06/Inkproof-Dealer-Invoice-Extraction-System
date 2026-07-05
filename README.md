@@ -1,8 +1,8 @@
-# Document AI Field Extraction System
+# Document InkProof Field Extraction System
 
 ## Overview
 
-An advanced document field extraction system for tractor quotations and invoices that leverages state-of-the-art AI models to achieve high accuracy and fast processing times. The system uses **Qwen2-VL** for intelligent text extraction and **YOLO** for stamp and signature detection.
+An advanced document inkproof field extraction system for tractor quotations and invoices that leverages state-of-the-art AI models to achieve high accuracy and fast processing times. The system uses **Qwen2-VL** for intelligent text extraction and **YOLO** for stamp and signature detection.
 
 ## 🎯 Key Features
 
@@ -12,6 +12,7 @@ An advanced document field extraction system for tractor quotations and invoices
 - **Multi-Format Support**: Handles PDFs and images
 - **Structured Output**: JSON format with confidence scores and bounding boxes
 - **Batch Processing**: Process multiple documents in one run
+- **Web Interface**: Browser-based UI ("Inkproof") for uploading documents and reviewing extracted fields, confidence scores, and signature/stamp bounding boxes visually
 
 ## 📊 Architecture Overview
 
@@ -216,6 +217,55 @@ Results are saved in JSON format with the following structure:
     "detection_model": "YOLOv8n",
     "inference_device": "cuda:0"
   }
+}
+```
+
+## 🖥️ Web Interface (Inkproof)
+
+In addition to the CLI, the system ships with **Inkproof** — a lightweight browser-based UI (`webapp/`) for uploading documents and reviewing extraction results visually, without touching the terminal.
+
+Drop in one or several documents — each shows up as a pill in the queue with a live status dot as it's processed:
+
+![Upload queue](screenshots/demo-upload-queue.png)
+
+Click any queued document to open its extraction ticket: dealer, model, horse power, and asset cost on the right, an overall confidence gauge top-right, and signature/stamp bounding boxes drawn directly on the document image:
+
+![Extraction result](screenshots/demo-extraction-result.png)
+
+### Running it
+
+```bash
+cd webapp
+pip install fastapi "uvicorn[standard]" python-multipart   # web-only deps
+uvicorn app:app --reload
+```
+
+Open **http://localhost:8000**. The backend (`webapp/app.py`) wraps the same `HybridExtractor` from `executable.py` — no separate extraction logic to maintain.
+
+- **Demo mode** (default if the full model stack isn't installed/loaded): replays real historical results from `webapp/sample_results.json` so the UI is reviewable immediately, with every response clearly flagged `"demo_mode": true` and shown with a **DEMO SAMPLE** badge.
+- **Live mode**: once `requirements.txt` (torch/transformers/ultralytics) is installed and `HybridExtractor()` loads successfully, uploads are run through the real pipeline and the header status pill switches to **"live model engaged"**.
+
+### Web API
+
+`GET /api/health` → `{ status, real_model_loaded, real_model_load_failed, error }`
+
+`POST /api/extract` (multipart form, field name `file`) → same JSON shape written to `output/results.json`:
+
+```json
+{
+  "doc_id": "172679241_1_pg25",
+  "fields": {
+    "dealer_name": "SWARAJ",
+    "model_name": "735 FE 40 HP",
+    "horse_power": 40,
+    "asset_cost": 720000,
+    "signature": { "present": true, "bbox": [...] },
+    "stamp": { "present": true, "bbox": [...] }
+  },
+  "confidence": 0.90,
+  "processing_time_sec": 5.63,
+  "cost_estimate_usd": 0.000113,
+  "demo_mode": false
 }
 ```
 
@@ -432,14 +482,18 @@ Document-AI-Extractor/
 │   └── sample_invoice.json
 ├── utils/                      # Utility modules
 │   ├── __init__.py
-│   ├── pdf_processor.py       # PDF to image conversion
-│   ├── text_extractor.py      # Qwen2-VL integration
-│   ├── detection.py           # YOLO stamp/signature detection
-│   ├── postprocessing.py      # Field validation & scoring
-│   └── helpers.py             # Common utilities
+│   ├── batch_process.py       # PDF to image conversion
+│   ├── evaluate.py      # Qwen2-VL integration
+│   ├── run.py           # YOLO stamp/signature detection
+│   ├── validation.py      # Field validation & scoring
+│  
 ├── models/                     # Downloaded model weights (auto-created)
 │   ├── qwen2-vl-2b/
 │   └── yolov8n.pt
+├── webapp/                     # Inkproof browser UI
+│   ├── app.py                  # FastAPI backend (wraps HybridExtractor)
+│   ├── index.html              # Frontend UI (single file, no build step)
+│   ├── sample_results.json     # Historical results used for demo mode
 ├── executable.py              # Main entry point
 ├── requirements.txt           # Python dependencies
 ├── README.md                  # This file
@@ -470,12 +524,14 @@ docker run -v $(pwd)/data:/app/data \
 
 ### 3. API Service (FastAPI)
 
+This is implemented in `webapp/app.py` — see [🖥️ Web Interface (Inkproof)](#️-web-interface-inkproof) above for the full UI. The same server also exposes a plain API if you just want to call it programmatically:
+
 ```bash
-# Start API server
-uvicorn api:app --host 0.0.0.0 --port 8000
+cd webapp
+uvicorn app:app --host 0.0.0.0 --port 8000
 
 # Make request
-curl -X POST http://localhost:8000/extract \
+curl -X POST http://localhost:8000/api/extract \
   -F "file=@invoice.pdf"
 ```
 
@@ -564,7 +620,7 @@ wget https://github.com/ultralytics/assets/releases/download/v0.0.0/yolov8n.pt
 
 For issues, questions, or feature requests:
 - GitHub Issues: https://github.com/Richik06/Document-AI-Extractor/issues
-- Email: [your-email@example.com]
+- Email: [richikd68@gmail.com]
 
 ## 🙏 Acknowledgments
 
