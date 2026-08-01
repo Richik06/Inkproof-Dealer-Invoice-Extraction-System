@@ -9,10 +9,10 @@ import sys
 from pathlib import Path
 from tqdm import tqdm
 import pandas as pd
-from executable import DocumentExtractor
+from executable import HybridExtractor
 
 
-def process_batch(input_dir: str, output_dir: str = "output", model_name: str = "Qwen/Qwen2-VL-7B-Instruct"):
+def process_batch(input_dir: str, output_dir: str = "output", model_name: str = "Qwen/Qwen2-VL-2B-Instruct"):
     """
     Process all PDFs in a directory
     """
@@ -30,7 +30,7 @@ def process_batch(input_dir: str, output_dir: str = "output", model_name: str = 
     
     # Initialize extractor
     print("Loading model...")
-    extractor = DocumentExtractor(model_name=model_name)
+    extractor = HybridExtractor()
     
     # Process files
     results = []
@@ -39,7 +39,7 @@ def process_batch(input_dir: str, output_dir: str = "output", model_name: str = 
     
     for pdf_file in tqdm(pdf_files, desc="Processing documents"):
         try:
-            result = extractor.process_document(str(pdf_file))
+            result = extractor.process(str(pdf_file))
             results.append(result)
             
             if result["confidence"] > 0.5:

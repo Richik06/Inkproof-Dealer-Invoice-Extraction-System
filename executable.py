@@ -22,6 +22,7 @@ import cv2
 import numpy as np
 import warnings
 warnings.filterwarnings('ignore')
+from utils.validation import validate_horse_power, validate_asset_cost
 
 # Try to import YOLO
 try:
@@ -328,8 +329,11 @@ class HybridExtractor:
         s = []
         s.append(0.9 if data["dealer_name"] and len(data["dealer_name"]) > 3 else 0.3)
         s.append(0.9 if data["model_name"] and len(data["model_name"]) > 2 else 0.3)
-        s.append(0.95 if data["horse_power"] and 15 <= data["horse_power"] <= 250 else 0.2)
-        s.append(0.95 if data["asset_cost"] and data["asset_cost"] > 10000 else 0.2)
+        _, hp_score = validate_horse_power(data["horse_power"])
+        s.append(hp_score)
+
+        _, cost_score = validate_asset_cost(data["asset_cost"])
+        s.append(cost_score)
         s.append(0.8 if data.get("signature_present") else 0.6)
         s.append(0.8 if data.get("stamp_present") else 0.6)
         

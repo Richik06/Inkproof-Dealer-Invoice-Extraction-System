@@ -8,14 +8,12 @@ import os
 # Add current directory to path
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
-from executable import DocumentExtractor
+from executable import HybridExtractor
 from pathlib import Path
 import json
 import time
 
-# =============================================================================
-# EDIT THESE PATHS - USE YOUR ACTUAL PATHS
-# =============================================================================
+
 
 # Input: Your PDF/PNG files location
 # Examples:
@@ -29,11 +27,8 @@ OUTPUT_PATH = r"output\results.json"
 # Model: Choose one
 # Fast (2B): "Qwen/Qwen2.5-VL-2B-Instruct"
 # Accurate (7B): "Qwen/Qwen2.5-VL-7B-Instruct"
-MODEL_NAME = "Qwen/Qwen2-VL-7B-Instruct"  # Use 7B for better accuracy
+MODEL_NAME = "Qwen/Qwen2-VL-2B-Instruct"  # Use 7B for better accuracy
 
-# =============================================================================
-# DON'T EDIT BELOW
-# =============================================================================
 
 def main():
     print("\n" + "="*70)
@@ -48,7 +43,7 @@ def main():
     try:
         # Initialize
         print("Initializing extractor...")
-        extractor = DocumentExtractor(model_name=MODEL_NAME)
+        extractor = HybridExtractor(model_name=MODEL_NAME)
         
         # Process
         input_path = Path(INPUT_PATH)
@@ -82,7 +77,7 @@ def main():
             for i, file_path in enumerate(files, 1):
                 print(f"\n{'='*70}")
                 print(f"File {i}/{len(files)}")
-                result = extractor.process_document(str(file_path))
+                result = extractor.process(str(file_path))
                 results.append(result)
         
         # Save results
